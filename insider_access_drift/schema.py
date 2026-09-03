@@ -23,13 +23,13 @@ def validate_events(df: pd.DataFrame) -> pd.DataFrame:
     if parsed.isna().any():
         raise SchemaError(f"{int(parsed.isna().sum())} rows have unparseable event_time")
 
-    sens = set(pd.to_numeric(df["resource_sensitivity"], errors="coerce").dropna().unique())
-    if not sens.issubset(SENSITIVITY_LEVELS):
+    sens = pd.to_numeric(df["resource_sensitivity"], errors="coerce")
+    if sens.isna().any() or not set(sens.dropna().unique()).issubset(SENSITIVITY_LEVELS):
         raise SchemaError("resource_sensitivity must be one of 0, 1, 2, 3")
 
     for col in ("external_share", "after_hours"):
-        vals = set(pd.to_numeric(df[col], errors="coerce").dropna().unique())
-        if not vals.issubset({0, 1}):
+        flag = pd.to_numeric(df[col], errors="coerce")
+        if flag.isna().any() or not set(flag.dropna().unique()).issubset({0, 1}):
             raise SchemaError(f"{col} must be 0 or 1")
 
     out = df.copy()

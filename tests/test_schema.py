@@ -33,3 +33,21 @@ def test_out_of_range_sensitivity_raises():
     df = pd.DataFrame([_row(resource_sensitivity=9)])
     with pytest.raises(SchemaError):
         validate_events(df)
+
+
+def test_non_numeric_sensitivity_raises():
+    df = pd.DataFrame([_row(resource_sensitivity="high")])
+    with pytest.raises(SchemaError):
+        validate_events(df)
+
+
+def test_non_numeric_flag_raises():
+    df = pd.DataFrame([_row(external_share="yes")])
+    with pytest.raises(SchemaError):
+        validate_events(df)
+
+
+def test_missing_flag_value_raises():
+    df = pd.DataFrame([_row(after_hours=None)])
+    with pytest.raises(SchemaError):
+        validate_events(df)
