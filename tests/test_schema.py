@@ -1,12 +1,13 @@
 import pandas as pd
 import pytest
-from insider_access_drift.schema import validate_events, SchemaError, REQUIRED_COLUMNS
+
+from insider_access_drift.schema import SchemaError, validate_events
 
 
 def _row(**kw):
-    base = dict(user_id="u1", peer_group="engineer", resource_id="repo-a",
-                resource_sensitivity=1, action="view", bytes_out=1000,
-                external_share=0, after_hours=0, event_time="2026-07-01 10:00")
+    base = {"user_id": "u1", "peer_group": "engineer", "resource_id": "repo-a",
+            "resource_sensitivity": 1, "action": "view", "bytes_out": 1000,
+            "external_share": 0, "after_hours": 0, "event_time": "2026-07-01 10:00"}
     base.update(kw)
     return base
 

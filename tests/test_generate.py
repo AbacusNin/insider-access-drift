@@ -1,6 +1,7 @@
 import pandas as pd
+
 from insider_access_drift.generate import generate_events
-from insider_access_drift.schema import validate_events, REQUIRED_COLUMNS
+from insider_access_drift.schema import REQUIRED_COLUMNS, validate_events
 
 
 def test_output_is_schema_valid():
