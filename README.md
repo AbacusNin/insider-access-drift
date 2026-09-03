@@ -80,7 +80,7 @@ Every dial (the feature weights, the tier thresholds and baseline gates, the per
 
 ## Detections
 
-Four rules, each as a pandas reference under `detections/reference/` and as a platform-native query.
+Four rules, each as a pandas reference in `insider_access_drift/detections/` and as a platform-native query under `detections/`.
 
 | Rule | Native file | ATT&CK | D3FEND |
 | --- | --- | --- | --- |

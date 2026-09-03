@@ -57,7 +57,7 @@ Thresholds for the four rules.
 
 ### The native rule files are not generated from this config
 
-`detections/reference/*.py` reads these dials directly. The deployable `detections/kql/*.kql`, `detections/splunk/*.spl`, and `detections/sigma/*.yml` carry the same values as inline literals (for example `med * 3`, `restricted_touches >= 3`, `mb_out >= 100`, `resource_sensitivity|gte: 2`). If you change a detection dial, edit the matching rule file by hand so the deployed query and the reference stay in sync. The scheduled CI jobs assert both fire on the same synthetic events, which is how a drift between them gets caught.
+`insider_access_drift/detections/*.py` reads these dials directly. The deployable `detections/kql/*.kql`, `detections/splunk/*.spl`, and `detections/sigma/*.yml` carry the same values as inline literals (for example `med * 3`, `restricted_touches >= 3`, `mb_out >= 100`, `resource_sensitivity|gte: 2`). If you change a detection dial, edit the matching rule file by hand so the deployed query and the reference stay in sync. The scheduled CI jobs assert both fire on the same synthetic events, which is how a drift between them gets caught.
 
 ## Setting the dials
 

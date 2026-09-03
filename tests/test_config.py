@@ -2,10 +2,10 @@ import json
 
 import pandas as pd
 import pytest
-from reference import crownjewel_download_burst as cj
 
 from insider_access_drift.cli import main
 from insider_access_drift.config import Config, DetectionConfig, FeatureConfig
+from insider_access_drift.detections import crownjewel_download_burst as cj
 from insider_access_drift.features import add_trend_feature, user_features
 from insider_access_drift.generate import generate_events
 from insider_access_drift.score import score

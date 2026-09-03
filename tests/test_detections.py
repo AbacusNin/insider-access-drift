@@ -1,10 +1,9 @@
-from reference import (
+from insider_access_drift.detections import (
     contractor_blast_radius,
     crownjewel_download_burst,
     external_share_after_hours,
     repository_access_drift,
 )
-
 from insider_access_drift.generate import generate_events
 
 
