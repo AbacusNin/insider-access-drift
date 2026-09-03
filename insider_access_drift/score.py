@@ -46,3 +46,30 @@ def robust_z(series: pd.Series) -> pd.Series:
     if std and not np.isnan(std):
         return (series - median) / std
     return pd.Series(np.zeros(len(series)), index=series.index)
+
+
+def score(features: pd.DataFrame, config: DriftConfig | None = None) -> pd.DataFrame:
+    config = config or DriftConfig()
+    weights = config.weights.as_map()
+    parts = []
+    for _, group in features.groupby("peer_group"):
+        g = group.copy()
+        too_small = (
+            len(g) < config.min_peer_size
+            or g["total_events"].sum() < config.min_peer_events
+        )
+        for col in FEATURE_COLUMNS:
+            g[f"{col}_rz"] = robust_z(g[col]).clip(lower=0)
+        g["drift_score"] = sum(weights[c] * g[f"{c}_rz"] for c in FEATURE_COLUMNS)
+        if too_small:
+            g["risk_tier"] = "insufficient_baseline"
+        else:
+            g["risk_tier"] = np.select(
+                [g["drift_score"] >= config.high_threshold,
+                 g["drift_score"] >= config.moderate_threshold],
+                ["high_review", "moderate_review"],
+                default="baseline",
+            )
+        parts.append(g)
+    result = pd.concat(parts, ignore_index=True)
+    return result.sort_values("drift_score", ascending=False).reset_index(drop=True)
