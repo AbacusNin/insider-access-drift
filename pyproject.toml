@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "insider-access-drift"
+version = "0.1.0"
+description = "Defensive access-drift scoring and insider-risk detections on synthetic telemetry"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+dependencies = ["pandas>=2.0", "numpy>=1.24"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0", "ruff>=0.5", "pysigma>=0.11"]
+validation = ["requests>=2.31", "azure-kusto-data>=4.5"]
+
+[project.scripts]
+insider-access-drift = "insider_access_drift.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["insider_access_drift*"]
+
+[tool.ruff]
+line-length = 100
+
+[tool.pytest.ini_options]
+markers = ["validation: real-engine checks, run only in CI validation jobs"]
