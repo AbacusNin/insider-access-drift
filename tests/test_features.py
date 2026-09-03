@@ -1,6 +1,7 @@
 import pandas as pd
 
-from insider_access_drift.features import user_features
+from insider_access_drift.features import add_trend_feature, user_features
+from insider_access_drift.generate import generate_events
 
 
 def _events():
@@ -24,3 +25,11 @@ def test_counts_and_rates():
     assert feats.loc["u1", "after_hours_events"] == 1
     assert round(feats.loc["u1", "after_hours_rate"], 3) == 0.5
     assert feats.loc["u2", "restricted_touches"] == 0
+
+
+def test_slow_roll_has_positive_trend():
+    events = generate_events()
+    feats = add_trend_feature(events, user_features(events)).set_index("user_id")
+    assert feats.loc["u900", "sensitivity_trend"] > 0
+    # a steady benign user should have near-flat trend
+    assert feats.loc["u001", "sensitivity_trend"] <= feats.loc["u900", "sensitivity_trend"]

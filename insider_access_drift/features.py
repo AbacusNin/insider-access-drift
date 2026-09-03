@@ -33,3 +33,17 @@ def user_features(events: pd.DataFrame) -> pd.DataFrame:
     g["after_hours_rate"] = g["after_hours_events"] / g["total_events"].clip(lower=1)
     g["external_share_rate"] = g["external_shares"] / g["total_events"].clip(lower=1)
     return g
+
+
+def add_trend_feature(events: pd.DataFrame, features: pd.DataFrame,
+                      split=None) -> pd.DataFrame:
+    df = prepare(events)
+    if split is None:
+        span = df["event_time"].max() - df["event_time"].min()
+        split = df["event_time"].min() + span / 2
+    recent = df[df["event_time"] >= split].groupby("user_id")["weighted_sensitivity"].sum()
+    prior = df[df["event_time"] < split].groupby("user_id")["weighted_sensitivity"].sum()
+    trend = recent.subtract(prior, fill_value=0).clip(lower=0)
+    out = features.copy()
+    out["sensitivity_trend"] = out["user_id"].map(trend).fillna(0.0)
+    return out
