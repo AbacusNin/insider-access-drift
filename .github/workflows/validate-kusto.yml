@@ -1,0 +1,31 @@
+name: validate-kusto
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "10 6 * * 1"
+jobs:
+  kusto:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -e ".[dev,validation]"
+      - name: Start Kustainer
+        run: |
+          docker run -d --name kustainer -p 8080:8080 \
+            -e ACCEPT_EULA=Y \
+            mcr.microsoft.com/azuredataexplorer/kustainer-linux:latest
+      - name: Wait for the emulator
+        run: |
+          for i in $(seq 1 30); do
+            if curl -s http://localhost:8080/v1/rest/mgmt >/dev/null 2>&1; then
+              echo ready; break
+            fi
+            sleep 5
+          done
+      - name: Run validation
+        env:
+          KUSTO_ENDPOINT: http://localhost:8080
+        run: python scripts/validate_kusto.py

@@ -30,3 +30,23 @@ Reproduce locally:
 
 Verify at build: the exact `splunk/splunk` tag, the current Free-license
 volume limit, and the `cacert.pem` path in the image. All can change.
+
+## KQL (Kusto emulator)
+
+`repository_access_drift.kql` and `contractor_blast_radius.kql` run against the
+Kusto emulator (Kustainer). The `validate-kusto` workflow starts the emulator,
+creates `AccessEvents`, ingests synthetic events inline, runs both rules, and
+asserts `{u900, u902}` are among the drift hits and the blast-radius hit is
+`{u902}`.
+
+The emulator is ADX-dialect KQL. These rules stay within the shared core, so a
+Sentinel deployment runs the same text; that is noted in each rule file.
+
+Reproduce locally:
+
+    docker run -d --name kustainer -p 8080:8080 -e ACCEPT_EULA=Y \
+      mcr.microsoft.com/azuredataexplorer/kustainer-linux:latest
+    KUSTO_ENDPOINT=http://localhost:8080 python scripts/validate_kusto.py
+
+Verify at build: the emulator image tag and the exact readiness/query endpoint
+paths. Confirm against the current emulator docs.
