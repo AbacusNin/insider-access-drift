@@ -1,0 +1,18 @@
+``` DEPLOYABLE TEMPLATE. Splunk, CIM-aligned field names. Not run in CI.
+    Adapt the index/sourcetype and the lookups to your file-access data.
+
+    Crown-jewel bulk pull: a burst of high-sensitivity downloads or copies.
+    ATT&CK T1213 Data from Information Repositories, T1567 Exfiltration Over Web Service.
+    D3FEND User Behavior Analysis.
+
+    Enrichment, which raw logs do not carry:
+      sensitivity  from a lookup 'sensitive_resources.csv' (object -> sensitivity).
+    CIM fields used: user, object, action, bytes_out. ```
+index=your_fileaccess_index action IN (download, copy, sync)
+| lookup sensitive_resources.csv object OUTPUT sensitivity
+| where sensitivity>=3
+| eval mb_out=bytes_out/1048576
+| where mb_out>=100
+| stats sum(mb_out) as mb_total count as events by user, object
+| where mb_total>=100
+| sort - mb_total

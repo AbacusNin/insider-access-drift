@@ -1,0 +1,34 @@
+// DEPLOYABLE TEMPLATE. Microsoft Sentinel / Defender XDR advanced hunting.
+// Not run in CI. Confirm table and column names against your tenant before use.
+//
+// Restricted-resource access above the department peer-group baseline.
+// ATT&CK T1213 Data from Information Repositories, T1078 Valid Accounts.
+// D3FEND Resource Access Pattern Analysis.
+//
+// Enrichment, which raw logs do not carry:
+//   sensitivity  from a Sentinel watchlist named 'SensitiveResources'
+//                (columns ResourceName, Sensitivity).
+//   peer_group   from IdentityInfo.Department.
+let sensitive =
+    _GetWatchlist('SensitiveResources')
+    | project ObjectName = tostring(ResourceName), sensitivity = toint(Sensitivity);
+let identity =
+    IdentityInfo
+    | summarize arg_max(TimeGenerated, Department) by AccountObjectId
+    | project AccountObjectId, peer_group = Department;
+let byuser =
+    CloudAppEvents
+    | where Timestamp > ago(30d)
+    | where ActionType in ("FileDownloaded", "FileSyncDownloadedFull", "FileCopied", "FileAccessed")
+    | join kind=inner sensitive on ObjectName
+    | where sensitivity >= 2
+    | join kind=inner identity on AccountObjectId
+    | summarize restricted_touches = count() by AccountObjectId, peer_group;
+let peermed =
+    byuser
+    | summarize med = percentile(restricted_touches, 50) by peer_group;
+byuser
+| join kind=inner peermed on peer_group
+| where restricted_touches >= 3 and restricted_touches > med * 3
+| project AccountObjectId, peer_group, restricted_touches, med
+| sort by restricted_touches desc

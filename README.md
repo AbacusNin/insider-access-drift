@@ -80,18 +80,20 @@ Every dial (the feature weights, the tier thresholds and baseline gates, the per
 
 ## Detections
 
-Four rules, each as a pandas reference in `insider_access_drift/detections/` and as a platform-native query under `detections/`.
+The four rules exist in two forms, because there is a gap between logic you can validate and content you can deploy.
 
-| Rule | Native file | ATT&CK | D3FEND |
+The validated logic runs on this project's normalized schema, the nine columns above. Each rule is a pandas reference in `insider_access_drift/detections/` and a matching normalized query under `detections/kql/`, `detections/splunk/`, and `detections/sigma/`.
+
+| Rule | Normalized query | ATT&CK | D3FEND |
 | --- | --- | --- | --- |
 | Repository access drift | `detections/kql/repository_access_drift.kql` | T1213, T1078 | Resource Access Pattern Analysis |
 | Contractor blast radius | `detections/kql/contractor_blast_radius.kql` | T1078 | Resource Access Pattern Analysis |
 | Crown-jewel download burst | `detections/splunk/crownjewel_download_burst.spl` | T1213, T1567 | User Behavior Analysis |
 | External share after hours | `detections/sigma/external_share_after_hours.yml` | T1567 | User Behavior Analysis |
 
-The rules are written against this project's normalized schema, the nine columns above. They are not tied to any one SIEM's native tables, and they are not drop-in content. A real deployment maps these fields onto its own sources and supplies the enriched columns (sensitivity, peer group, external-share, after-hours) that raw logs do not carry. Treat them as validated logic to adapt, not paste-and-run rules.
+That logic is checked two ways. The pandas reference runs on every push against the seeded personas and asserts the right users are flagged. The normalized KQL and SPL run for real in two scheduled jobs, against a Splunk container and the Kusto emulator, on the same synthetic events. Setup and the verify-at-build items are in `docs/validation.md`.
 
-The logic is checked two ways. The pandas reference runs on every push against the seeded personas and asserts the right users are flagged. The native KQL and SPL run for real in two scheduled jobs, against a Splunk container and the Kusto emulator, on the same synthetic events. Setup and the verify-at-build items are in `docs/validation.md`.
+The deployable templates live in `detections/deployable/`, written against real SIEM schemas: Microsoft Sentinel and Defender advanced hunting (`CloudAppEvents`, `IdentityInfo`, and a `SensitiveResources` watchlist) for KQL, and CIM-aligned field names with a lookup for Splunk. They include the enrichment joins that raw logs require, since `resource_sensitivity` and `peer_group` are not native to any log table. They are not run in CI and cannot be, since that needs a real tenant with real data, so confirm the table and field names against your environment before using them. The External Share rule stays as Sigma, which you convert to your backend with its field mapping.
 
 ## Privacy guardrails
 

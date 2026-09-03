@@ -1,0 +1,27 @@
+// DEPLOYABLE TEMPLATE. Microsoft Sentinel / Defender XDR advanced hunting.
+// Not run in CI. Confirm table and column names against your tenant before use.
+//
+// Contractor identity reaching a broad set of restricted resources.
+// ATT&CK T1078 Valid Accounts. D3FEND Resource Access Pattern Analysis.
+//
+// Enrichment, which raw logs do not carry:
+//   sensitivity  from a Sentinel watchlist named 'SensitiveResources'.
+//   contractor   marked here by an empty EmployeeId or a JobTitle containing
+//                "Contractor". Replace with your own contractor marker.
+let sensitive =
+    _GetWatchlist('SensitiveResources')
+    | project ObjectName = tostring(ResourceName), sensitivity = toint(Sensitivity);
+let contractors =
+    IdentityInfo
+    | summarize arg_max(TimeGenerated, EmployeeId, JobTitle) by AccountObjectId
+    | where isempty(EmployeeId) or JobTitle has "Contractor"
+    | project AccountObjectId;
+CloudAppEvents
+| where Timestamp > ago(30d)
+| where ActionType in ("FileDownloaded", "FileAccessed", "FileCopied")
+| join kind=inner contractors on AccountObjectId
+| join kind=inner sensitive on ObjectName
+| where sensitivity >= 2
+| summarize restricted_resources = dcount(ObjectName) by AccountObjectId
+| where restricted_resources >= 3
+| sort by restricted_resources desc
