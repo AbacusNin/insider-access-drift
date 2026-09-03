@@ -37,7 +37,7 @@ Access events are a flat table with nine required columns, checked by `insider_a
 
 ![Data flow: the synthetic generator produces events, which feed features, then robust-z scoring with a trend feature and a small-peer-group baseline guard, producing ranked risk tiers. Events also feed the detection rules in parallel.](docs/diagram.svg)
 
-Scoring runs in three stages. `features.user_features` aggregates each user's events into eight per-user features. `features.add_trend_feature` folds in a slow-roll signal. `score.score` turns those features into a peer-relative drift score.
+Scoring runs in three stages. `features.user_features` aggregates each user's events into eight per-user features. `features.add_trend_feature` folds in a slow-roll signal. `score.score` turns those features into a peer-relative drift score. `score.score` expects features that have already gone through `add_trend_feature`, since it reads a `sensitivity_trend` column; the CLI runs both stages for you.
 
 Each feature is compared against the user's own peer group, not the whole population, using a robust z-score (`score.robust_z`): median-centered, scaled by the median absolute deviation, negative values clipped to zero since only unusually high activity matters here. If a peer group's MAD is zero, which happens in small groups with a lot of tied values, the score falls back to standard deviation. If both are zero, everyone in that group scores zero rather than dividing by nothing.
 

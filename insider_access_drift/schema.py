@@ -27,11 +27,16 @@ def validate_events(df: pd.DataFrame) -> pd.DataFrame:
     if sens.isna().any() or not set(sens.dropna().unique()).issubset(SENSITIVITY_LEVELS):
         raise SchemaError("resource_sensitivity must be one of 0, 1, 2, 3")
 
+    flags = {}
     for col in ("external_share", "after_hours"):
         flag = pd.to_numeric(df[col], errors="coerce")
         if flag.isna().any() or not set(flag.dropna().unique()).issubset({0, 1}):
             raise SchemaError(f"{col} must be 0 or 1")
+        flags[col] = flag
 
     out = df.copy()
     out["event_time"] = parsed
+    out["resource_sensitivity"] = sens
+    for col, flag in flags.items():
+        out[col] = flag
     return out

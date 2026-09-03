@@ -52,3 +52,10 @@ def test_missing_flag_value_raises():
     df = pd.DataFrame([_row(after_hours=None)])
     with pytest.raises(SchemaError):
         validate_events(df)
+
+
+def test_numeric_string_sensitivity_is_coerced_in_output():
+    df = pd.DataFrame([_row(resource_sensitivity="2", external_share="1")])
+    out = validate_events(df)
+    assert pd.api.types.is_numeric_dtype(out["resource_sensitivity"])
+    assert pd.api.types.is_numeric_dtype(out["external_share"])
