@@ -18,13 +18,22 @@ jobs:
             -e ACCEPT_EULA=Y \
             mcr.microsoft.com/azuredataexplorer/kustainer-linux:latest
       - name: Wait for the emulator
+        # curl -s alone treats any response (404/405 included) as ready, so
+        # require an actual successful mgmt call before trusting the engine.
         run: |
-          for i in $(seq 1 30); do
-            if curl -s http://localhost:8080/v1/rest/mgmt >/dev/null 2>&1; then
-              echo ready; break
+          ready=0
+          for i in $(seq 1 60); do
+            if curl -s --fail -X POST http://localhost:8080/v1/rest/mgmt \
+                -H "Content-Type: application/json" \
+                -d '{"csl":".show version"}' >/dev/null; then
+              echo ready; ready=1; break
             fi
-            sleep 5
+            sleep 10
           done
+          if [ "$ready" -ne 1 ]; then
+            echo "Kustainer did not become ready in time" >&2
+            exit 1
+          fi
       - name: Run validation
         env:
           KUSTO_ENDPOINT: http://localhost:8080

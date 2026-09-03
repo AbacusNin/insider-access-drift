@@ -48,5 +48,10 @@ Reproduce locally:
       mcr.microsoft.com/azuredataexplorer/kustainer-linux:latest
     KUSTO_ENDPOINT=http://localhost:8080 python scripts/validate_kusto.py
 
-Verify at build: the emulator image tag and the exact readiness/query endpoint
-paths. Confirm against the current emulator docs.
+Readiness is checked with `curl --fail -X POST /v1/rest/mgmt -d '{"csl":".show
+version"}'` rather than a bare GET, since a bare `curl -s` treats any response,
+404 or 405 included, as ready.
+
+Verify at build: the emulator image tag, the exact readiness/query endpoint
+paths, and whether `.show version` is the right mgmt probe for this emulator
+build. Confirm against the current emulator docs.

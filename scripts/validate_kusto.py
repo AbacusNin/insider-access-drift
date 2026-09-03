@@ -30,11 +30,14 @@ def _ingest_inline(client, df):
     ))
     rows = []
     for r in df.to_dict("records"):
+        # .ingest inline data is parsed as CSV, not KQL, so event_time must be
+        # a bare ISO8601 string; datetime(...) is a KQL literal and would
+        # silently null-fill the column instead of erroring.
         rows.append(
             f'"{r["user_id"]}","{r["peer_group"]}","{r["resource_id"]}",'
             f'{int(r["resource_sensitivity"])},"{r["action"]}",{int(r["bytes_out"])},'
             f'{int(r["external_share"])},{int(r["after_hours"])},'
-            f'datetime({r["event_time"]}),"{r["persona"]}"'
+            f'{r["event_time"]},"{r["persona"]}"'
         )
     client.execute(DB, ".ingest inline into table AccessEvents <|\n" + "\n".join(rows))
 
