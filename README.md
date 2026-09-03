@@ -2,34 +2,38 @@
 
 ![ci](https://github.com/AbacusNin/insider-access-drift/actions/workflows/ci.yml/badge.svg)
 
-Defensive access-drift scoring and insider-risk detections, built and validated on synthetic telemetry.
+Peer-relative access-drift scoring and insider-risk detections, built and validated on synthetic data.
 
 ## What this is
 
-An engineering-practice project, not a product to run in place of your SIEM. It ships two things over one synthetic access-log schema: four insider-risk detection rules as real KQL, SPL, and Sigma, and a peer-relative drift scorer that ranks users by how far their access behavior sits from their peers.
+An engineering-practice project. It is not a product to run in place of a SIEM or a UEBA. It has two parts over one access-log schema: four insider-risk detection rules (KQL, SPL, Sigma) and a scorer that ranks users by how far their access sits from their peers.
 
-The two halves do different jobs. The detections are the deployable half. They run in the SIEM you already have, on data already there, in real time, and if operational detection is all you want, deploy them and skip the scorer. The scorer only earns its place where a signature cannot: the slow accumulator who never trips a single threshold, weak signals adding up across many dimensions, and ranking a queue instead of firing an alert. A commercial UEBA does that scoring better and integrated. This is a transparent, auditable, from-scratch version of the same idea, worth running as a portfolio demonstration, as a triage layer on top of the detections rather than instead of them, or in a shop with no UEBA that wants a model it can read line by line.
+The two parts do different jobs. The detections are the deployable part: signature rules you run in your SIEM, in real time, on data that is already there. If operational detection is all you want, use them and skip the scorer. The scorer does the thing a signature cannot. It flags the person who never trips a single rule but drifts from their peer group over weeks, and it ranks a queue instead of firing yes-or-no alerts. A commercial UEBA does this better and in real time. This is a small, readable version of the same idea, useful as a demonstration, as a triage layer on top of the detections, or where no UEBA is available.
 
 ## Threat model
 
-A public video breaks the corporate-espionage supply chain into a ladder of roles: recruiter, handler, the person who actually holds legitimate access, and the buyer on the other end. This tool only models the middle of that ladder, the employee or contractor who already has a badge and a login and either widens their own reach past what the job needs or starts moving material toward the door. Those are the roles that leave access telemetry behind. Recruitment and handling happen off the network and outside anything this tool can see.
+The risk is an insider with legitimate access. An employee or contractor who already has a login can reach past what the job needs, or move sensitive material toward the door, and in most logs it looks like ordinary work. There is no malware and no failed login. There is valid access, used wrong.
 
-Everything here runs against synthetic access events generated in-repo. There is no real user, no real company, and no claim that any of these scores identify an actual insider. The scorer and the detection rules produce triage output: a ranked list and a handful of flagged rows for a human analyst to review next. Nothing here adjudicates guilt, revokes access, or should get wired to an automated response. A high drift score is a reason to look closer, the same as any other alert, not a verdict.
+This tool watches access telemetry for that pattern: who touched which resource, how sensitive it was, whether it left the company, and when. It does not model recruitment, payment, or motive, which happen off the network. It models the one thing that leaves a trail, the access itself. A malicious insider, a careless one, and a stolen account all look the same here: access that drifts from a peer baseline.
+
+Everything runs on synthetic data generated in the repo. There is no real user or company, and nothing here names an insider. The scorer and the rules produce triage, a ranked list and a few flagged rows for an analyst to look at. Nothing decides anything or takes an action.
 
 ## Telemetry schema
 
-Access events are a flat table with nine required columns, checked by `insider_access_drift.schema.validate_events` before anything else touches them.
+An access event is a row with nine required columns, checked by `insider_access_drift.schema.validate_events` before anything else runs.
 
-- `user_id`, `peer_group`: who did it, and which baseline group they get compared against.
+- `user_id`, `peer_group`: who acted, and which baseline they are compared against.
 - `resource_id`: what they touched.
-- `resource_sensitivity`: 0 through 3, low to crown jewel. Anything outside that range fails validation.
-- `action`: one of `view`, `download`, `clone`, `export`, `share`, `delete`, `permission_change`. An action outside that set still parses, it just scores as a weak, catch-all 0.5.
-- `bytes_out`: bytes moved off the resource, used to compute megabytes out.
-- `external_share`: 0 or 1, whether the action left the org boundary.
-- `after_hours`: 0 or 1, whether it happened outside the working window the generator uses.
+- `resource_sensitivity`: 0 to 3, low to crown jewel. Outside that range fails validation.
+- `action`: `view`, `download`, `clone`, `export`, `share`, `delete`, or `permission_change`. Any other action still parses and scores as a flat 0.5.
+- `bytes_out`: bytes moved off the resource.
+- `external_share`: 0 or 1, whether the action left the company boundary.
+- `after_hours`: 0 or 1, whether it happened outside working hours.
 - `event_time`: a parseable timestamp.
 
-`validate_events` raises `SchemaError` on any of this instead of coercing bad input quietly. Bad sensitivity values, bad flag values, or timestamps that won't parse stop scoring before it starts.
+`validate_events` raises `SchemaError` rather than coercing bad input. A bad sensitivity value, a bad flag, or an unparseable timestamp stops the run before scoring.
+
+Two of these columns are not raw telemetry. `resource_sensitivity` and `peer_group` are enrichments you supply from a classification program and an identity or HR source. See `docs/configuration.md` for how they get populated.
 
 ## Quick start
 
@@ -37,78 +41,78 @@ Access events are a flat table with nine required columns, checked by `insider_a
     python -m insider_access_drift generate --out events.csv
     python -m insider_access_drift score --in events.csv
 
-`generate` writes a fixed-seed synthetic event log: three benign peer groups (engineer, sales, contractor) plus three seeded bad-actor personas, a slow-roll accumulator, an after-hours crown-jewel puller, and a contractor with unusually broad restricted-resource reach. `score` reads any events CSV matching the schema above, ranks users by drift score, and prints `user_id`, `peer_group`, `drift_score`, and `risk_tier`. Pass `--out ranked.csv` to also write the full scored table.
+`generate` writes a fixed-seed log: three benign peer groups (engineer, sales, contractor) and three seeded bad actors, a slow accumulator, an after-hours crown-jewel puller, and a contractor with broad restricted-resource reach. `score` reads any CSV matching the schema, ranks users, and prints `user_id`, `peer_group`, `drift_score`, and `risk_tier`. Add `--out ranked.csv` to write the full scored table, and `--config file.json` to override the dials.
 
 ## How scoring works
 
-![Data flow: the synthetic generator produces events, which feed features, then robust-z scoring with a trend feature and a small-peer-group baseline guard, producing ranked risk tiers. Events also feed the detection rules in parallel.](docs/diagram.svg)
+![Data flow: the generator produces events, which feed feature aggregation, then robust-z scoring with a trend feature and a small-group baseline guard, producing ranked risk tiers. Events also feed the detection rules in parallel.](docs/diagram.svg)
 
-Scoring runs in three stages. `features.user_features` aggregates each user's events into eight per-user features. `features.add_trend_feature` folds in a slow-roll signal. `score.score` turns those features into a peer-relative drift score. `score.score` expects features that have already gone through `add_trend_feature`, since it reads a `sensitivity_trend` column; the CLI runs both stages for you.
+Scoring runs in three steps: aggregate each user's events into eight features (`user_features`), add a trend feature (`add_trend_feature`), then score (`score`). `score` reads the trend column, so `add_trend_feature` runs first. The CLI does both for you.
 
-Each feature is compared against the user's own peer group, not the whole population, using a robust z-score (`score.robust_z`): median-centered, scaled by the median absolute deviation, negative values clipped to zero since only unusually high activity matters here. If a peer group's MAD is zero, which happens in small groups with a lot of tied values, the score falls back to standard deviation. If both are zero, everyone in that group scores zero rather than dividing by nothing.
+Each feature is scored against the user's peer group, not the whole company, with a robust z-score: median-centered, scaled by the median absolute deviation, negatives clipped to zero because only high activity matters. If a group's deviation is zero, which happens in small groups with many tied values, it falls back to standard deviation, and if that is also zero the group scores zero.
 
-Peer groups need enough data to mean anything. `DriftConfig.min_peer_size` (default 4 users) and `min_peer_events` (default 20 events) gate this. A group under either threshold gets `risk_tier = insufficient_baseline` instead of a real comparison, no matter what the raw numbers look like. A drift score computed against three people isn't a baseline. It's noise, and this tool says so instead of pretending otherwise.
+A group needs enough data for the comparison to hold. `min_peer_size` (4 users) and `min_peer_events` (20 events) gate it. A group under either gets `insufficient_baseline` instead of a score. Comparing one person against three others is not a baseline.
 
-The trend feature, `sensitivity_trend`, splits each user's event history at its midpoint and takes the rise in weighted-sensitivity activity between the first half and the second, floored at zero. It exists to catch the slow-roll pattern: someone who never has one alarming day, but who touches more sensitive material every week than the week before.
+The trend feature splits each user's history at the midpoint and measures how much their sensitive-access activity rose from the first half to the second. It catches the slow accumulator: no single bad day, but more sensitive access each week than the week before.
 
-The eight features feed a weighted sum, `WeightConfig`, one weight per feature, each picked for what the observable is supposed to catch:
+The eight features are combined as a weighted sum. Each weight reflects how much the observable is worth on its own:
 
-| Feature | Weight | Why |
+| Feature | Weight | Reason |
 | --- | --- | --- |
-| `distinct_resources` | 0.8 | breadth of access, the weakest signal alone since analysts touch a lot of resources by design |
-| `restricted_touches` | 1.2 | reaching into restricted material, a narrower and stronger signal than total resource count |
-| `crown_jewel_touches` | 1.8 | the clearest exfiltration signal in the set |
-| `weighted_sensitivity` | 1.3 | overall volume of sensitive-action activity, action-weighted |
+| `distinct_resources` | 0.8 | breadth of access, weak alone since some roles touch many resources |
+| `restricted_touches` | 1.2 | reaching restricted material, narrower than raw resource count |
+| `crown_jewel_touches` | 1.8 | the strongest single exfiltration signal |
+| `weighted_sensitivity` | 1.3 | total sensitive activity, weighted by action |
 | `mb_out` | 1.2 | bulk data movement |
-| `external_share_rate` | 1.5 | the handler or contractor exfil surface, sharing outside the org |
-| `after_hours_rate` | 0.7 | a weak corroborating signal alone, since off-hours activity has plenty of legitimate causes |
-| `sensitivity_trend` | 1.0 | the slow-roll accumulation pattern |
+| `external_share_rate` | 1.5 | sharing outside the company |
+| `after_hours_rate` | 0.7 | weak alone, since off-hours work is common |
+| `sensitivity_trend` | 1.0 | slow accumulation over time |
 
-`drift_score` is the sum of each feature's robust z-score times its weight. Users above `high_threshold` (8.0) land in `high_review`, above `moderate_threshold` (4.0) in `moderate_review`, everyone else in `baseline`. Both thresholds and every weight live in `DriftConfig` and `WeightConfig`, and they are meant to get tuned per deployment, not treated as universal constants.
+`drift_score` is the weighted sum of the robust z-scores. Above `high_threshold` (8.0) is `high_review`, above `moderate_threshold` (4.0) is `moderate_review`, the rest is `baseline`. Weights and thresholds are config, tuned per deployment.
 
 ## Configuration
 
-Every dial, the feature weights, the tier thresholds and peer-baseline gates, the per-action weights, the restricted and crown-jewel sensitivity cutoffs, and the four detection thresholds, is one object (`insider_access_drift.config.Config`) with working defaults. Override any of it from a JSON file without touching code:
+Every dial (the feature weights, the tier thresholds and baseline gates, the per-action weights, the sensitivity cutoffs, and the detection thresholds) is one object, `insider_access_drift.config.Config`, with working defaults. Override any of it from a JSON file:
 
     python -m insider_access_drift score --in events.csv --config my-config.json
 
-`docs/configuration.md` documents every dial and how the two operator-owned inputs (`resource_sensitivity` and `peer_group`) get populated upstream. `docs/operational-workflow.md` has the end-to-end deployment workflow and a flowchart of the full loop.
+`docs/configuration.md` lists every dial and how the two operator-owned inputs get populated. `docs/operational-workflow.md` has the deployment workflow and a flowchart.
 
 ## Detections
 
-Four rules, each shipped twice: once as a pandas reference under `detections/reference/`, once as the platform-native query it represents.
+Four rules, each as a pandas reference under `detections/reference/` and as a platform-native query.
 
 | Rule | Native file | ATT&CK | D3FEND |
 | --- | --- | --- | --- |
-| Repository access drift | `detections/kql/repository_access_drift.kql` | T1213 Data from Information Repositories, T1078 Valid Accounts | Resource Access Pattern Analysis |
-| Contractor blast radius | `detections/kql/contractor_blast_radius.kql` | T1078 Valid Accounts | Resource Access Pattern Analysis |
-| Crown-jewel download burst | `detections/splunk/crownjewel_download_burst.spl` | T1213, T1567 Exfiltration Over Web Service | User Behavior Analysis |
-| External share after hours | `detections/sigma/external_share_after_hours.yml` | T1567 Exfiltration Over Web Service | User Behavior Analysis |
+| Repository access drift | `detections/kql/repository_access_drift.kql` | T1213, T1078 | Resource Access Pattern Analysis |
+| Contractor blast radius | `detections/kql/contractor_blast_radius.kql` | T1078 | Resource Access Pattern Analysis |
+| Crown-jewel download burst | `detections/splunk/crownjewel_download_burst.spl` | T1213, T1567 | User Behavior Analysis |
+| External share after hours | `detections/sigma/external_share_after_hours.yml` | T1567 | User Behavior Analysis |
 
-The pandas reference under each rule name is the fast-gate version. It runs on every push and pull request against the synthetic generator's seeded personas and asserts the right users get flagged. It exists so the detection logic gets checked on every commit without spinning up Splunk or a Kusto emulator each time.
+The rules are written against this project's normalized schema, the nine columns above. They are not tied to any one SIEM's native tables, and they are not drop-in content. A real deployment maps these fields onto its own sources and supplies the enriched columns (sensitivity, peer group, external-share, after-hours) that raw logs do not carry. Treat them as validated logic to adapt, not paste-and-run rules.
 
-The native files are the actual artifacts you would deploy, not restatements written for documentation. They run for real in two scheduled CI jobs: `validate-splunk` against a real `splunk/splunk` container over HEC and the REST search API, and `validate-kusto` against the Kustainer emulator, both against the same synthetic events and asserting the same expected hits as the reference tests. Setup, reproduction steps, and the known verify-at-build items (image tags, endpoint paths) live in `docs/validation.md`.
+The logic is checked two ways. The pandas reference runs on every push against the seeded personas and asserts the right users are flagged. The native KQL and SPL run for real in two scheduled jobs, against a Splunk container and the Kusto emulator, on the same synthetic events. Setup and the verify-at-build items are in `docs/validation.md`.
 
 ## Privacy guardrails
 
-- Collect the nine schema columns and nothing else. No message bodies, no file contents, no anything past the access metadata this needs to work.
-- Anyone whose access gets scored should know a system does this and roughly what it looks at. Silent behavioral scoring of employees is its own risk, separate from the one it is meant to catch.
-- Every output here is triage for a human reviewer, not a decision on its own. `risk_tier` sorts who a person looks at first. It does not replace that person looking.
-- A high drift score is not evidence of wrongdoing and should not enter any real process, HR, legal, or otherwise, as if it were. It is a statistical outlier against a peer baseline, and peer baselines get it wrong.
+- Collect the nine schema columns and nothing else. No message bodies, no file contents.
+- Anyone whose access is scored should know a system does this and what it looks at. Silent behavioral scoring of employees is its own risk.
+- Every output is triage for a human. `risk_tier` sets who to look at first. It does not replace looking.
+- A drift score is not evidence. It should not enter an HR or legal process as if it were. It is a statistical outlier against a peer baseline, and peer baselines are often wrong.
 
 ## Limitations and failure modes
 
-Peer grouping is the whole scheme's dependency. `peer_group` here comes from three clean synthetic categories, but a real org's job-role data is messy, and a user assigned to the wrong peer group gets compared against a baseline that has nothing to do with their actual job. Someone doing legitimately broad cross-team work will drift high against a narrow peer group for reasons that have nothing to do with risk.
+Peer grouping is the dependency the whole thing rests on. Here it comes from three clean synthetic categories. Real job-role data is messy, and a user in the wrong peer group is compared against a baseline that has nothing to do with their job. Someone doing legitimately broad cross-team work will score high for no real reason.
 
-Small teams break the baseline outright, which is why `insufficient_baseline` exists as its own tier instead of a silent pass. A four-person group is thin enough that one person having an unusual week can look identical to a group-wide shift.
+Small teams break the baseline, which is why `insufficient_baseline` is its own tier. In a four-person group, one person having an odd week can look like a group-wide shift.
 
-The scorer has no concept of a business cycle. A quarter-end close, a migration, an audit, anything that legitimately spikes normal access for a whole team reads the same as a coordinated insider push, unless the peer baseline itself moves with it. Nothing here tells "this team is busy" apart from "this team is compromised."
+The scorer has no sense of a business cycle. A quarter-end close, a migration, or an audit spikes normal access for a whole team and reads like a coordinated push, unless the peer baseline moves with it.
 
-None of this is evidence. It is a ranked list built on synthetic-data assumptions that will not hold exactly in any real environment. It tells a human analyst where to look first. It does not tell them what they will find.
+None of this is evidence. It is a ranked list built on assumptions that will not hold exactly in a real environment. It says where to look first, not what you will find.
 
 ## Roadmap
 
-An LLM-backed access narrative explainer is on the list, deliberately not built yet: something that takes a flagged user's event sequence and writes the plain-language version, download volume to a given repository roughly tripled over two weeks while staying just under the crown-jewel threshold, instead of leaving an analyst to read a bare drift score. It would run offline-first against local events, nothing sent anywhere the scorer does not already reach. A tool built to cut down on over-collection should not turn around and ship a flagged user's activity to a third-party API to get it summarized.
+An LLM access-narrative explainer, not built yet. It would take a flagged user's event sequence and write the plain-language summary (for example, download volume to one repository roughly tripled over two weeks while staying under the crown-jewel threshold) in place of a bare score. It would run offline against local events, not send a flagged user's activity to a third-party API.
 
 ## License
 
