@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 860 230" role="img" aria-labelledby="t d">
+<title id="t">insider-access-drift data flow</title>
+<desc id="d">Synthetic generator produces events. Events feed features, which feed robust-z scoring with a trend feature and a small-peer-group baseline guard, producing ranked risk tiers. Events also feed the detection rules in parallel.</desc>
+<style>
+.b{fill:#e7eaf0;stroke:#6b7686;stroke-width:1.5}
+.t{fill:#26303d;font:12px sans-serif;text-anchor:middle}
+.a{stroke:#6b7686;stroke-width:1.5;fill:none;marker-end:url(#h)}
+@media (prefers-color-scheme:dark){
+.b{fill:#333c48;stroke:#8b96a5}
+.t{fill:#dde3ec}
+.a{stroke:#8b96a5}
+}
+</style>
+<defs><marker id="h" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0L6,3L0,6Z" fill="#6b7686"/></marker></defs>
+<rect class="b" x="8" y="18" width="120" height="46" rx="4"/><text class="t" x="68" y="45">Synthetic<tspan x="68" dy="14">generator</tspan></text>
+<rect class="b" x="160" y="18" width="96" height="46" rx="4"/><text class="t" x="208" y="45">Events</text>
+<rect class="b" x="288" y="18" width="112" height="46" rx="4"/><text class="t" x="344" y="38">Features per</text><text class="t" x="344" y="52">user</text>
+<rect class="b" x="432" y="8" width="168" height="66" rx="4"/><text class="t" x="516" y="30">Robust-z scoring</text><text class="t" x="516" y="44">trend feature</text><text class="t" x="516" y="58">baseline guard</text>
+<rect class="b" x="632" y="18" width="150" height="46" rx="4"/><text class="t" x="707" y="38">Ranked</text><text class="t" x="707" y="52">risk tiers</text>
+<rect class="b" x="160" y="150" width="240" height="46" rx="4"/><text class="t" x="280" y="170">Detection rules</text><text class="t" x="280" y="184">KQL / SPL / Sigma</text>
+<path class="a" d="M128,41H158"/>
+<path class="a" d="M256,41H286"/>
+<path class="a" d="M400,41H430"/>
+<path class="a" d="M600,41H630"/>
+<path class="a" d="M208,64V148"/>
+</svg>
