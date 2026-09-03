@@ -1,4 +1,9 @@
-from reference import crownjewel_download_burst, repository_access_drift
+from reference import (
+    contractor_blast_radius,
+    crownjewel_download_burst,
+    external_share_after_hours,
+    repository_access_drift,
+)
 
 from insider_access_drift.generate import generate_events
 
@@ -15,3 +20,16 @@ def test_crownjewel_burst_flags_only_crownjewel_persona():
     events = generate_events()
     flagged = set(crownjewel_download_burst.flag(events)["user_id"])
     assert flagged == {"u901"}
+
+
+def test_external_share_after_hours_flags_crownjewel_persona():
+    events = generate_events()
+    flagged = set(external_share_after_hours.flag(events)["user_id"])
+    assert flagged == {"u901"}
+
+
+def test_contractor_blast_radius_flags_broad_contractor():
+    events = generate_events()
+    flagged = contractor_blast_radius.flag(events)
+    assert "u902" in flagged.index
+    assert flagged.loc["u902"] >= 3
