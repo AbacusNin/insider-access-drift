@@ -1,0 +1,7 @@
+`comment("insider-access-drift: crown-jewel bulk pull. ATT&CK T1213, T1567.")`
+index=access_events resource_sensitivity=3 (action=download OR action=clone OR action=export)
+| eval mb_out=bytes_out/1048576
+| where mb_out>=100
+| stats sum(mb_out) as mb_total count as events by user_id, resource_id
+| where mb_total>=100
+| sort - mb_total

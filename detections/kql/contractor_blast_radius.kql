@@ -1,0 +1,7 @@
+// insider-access-drift: contractor identity with broad restricted access.
+// ATT&CK T1078 Valid Accounts.
+AccessEvents
+| where peer_group == "contractor" and resource_sensitivity >= 2
+| summarize restricted_resources = dcount(resource_id) by user_id
+| where restricted_resources >= 3
+| sort by restricted_resources desc

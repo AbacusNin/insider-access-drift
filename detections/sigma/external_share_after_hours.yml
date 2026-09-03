@@ -1,0 +1,26 @@
+title: Sensitive External Share After Hours
+id: a6de8269-05c9-4bbe-93dd-d9aa63a709b5
+status: experimental
+description: >
+  A restricted or crown-jewel resource shared to an external destination
+  outside business hours. Defender-side insider-risk signal. Fields match
+  the insider-access-drift synthetic access-event schema.
+references:
+  - https://attack.mitre.org/techniques/T1567/
+logsource:
+  product: insider_access_drift
+  service: access_events
+detection:
+  selection:
+    resource_sensitivity|gte: 2
+    external_share: 1
+    after_hours: 1
+  condition: selection
+fields:
+  - user_id
+  - resource_id
+  - resource_sensitivity
+level: high
+tags:
+  - attack.exfiltration
+  - attack.t1567

@@ -1,0 +1,14 @@
+// insider-access-drift: restricted-repository access above peer baseline.
+// ATT&CK T1213 Data from Information Repositories, T1078 Valid Accounts.
+let byuser =
+    AccessEvents
+    | where resource_sensitivity >= 2
+    | summarize restricted_touches = count() by user_id, peer_group;
+let peermed =
+    byuser
+    | summarize med = percentile(restricted_touches, 50) by peer_group;
+byuser
+| join kind=inner peermed on peer_group
+| where restricted_touches >= 3 and restricted_touches > med * 3
+| project user_id, peer_group, restricted_touches, med
+| sort by restricted_touches desc
