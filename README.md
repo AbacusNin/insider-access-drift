@@ -2,7 +2,13 @@
 
 ![ci](https://github.com/AbacusNin/insider-access-drift/actions/workflows/ci.yml/badge.svg)
 
-Defensive access-drift scoring and insider-risk detections on synthetic telemetry, for triage practice with no real data involved.
+Defensive access-drift scoring and insider-risk detections, built and validated on synthetic telemetry.
+
+## What this is
+
+An engineering-practice project, not a product to run in place of your SIEM. It ships two things over one synthetic access-log schema: four insider-risk detection rules as real KQL, SPL, and Sigma, and a peer-relative drift scorer that ranks users by how far their access behavior sits from their peers.
+
+The two halves do different jobs. The detections are the deployable half. They run in the SIEM you already have, on data already there, in real time, and if operational detection is all you want, deploy them and skip the scorer. The scorer only earns its place where a signature cannot: the slow accumulator who never trips a single threshold, weak signals adding up across many dimensions, and ranking a queue instead of firing an alert. A commercial UEBA does that scoring better and integrated. This is a transparent, auditable, from-scratch version of the same idea, worth running as a portfolio demonstration, as a triage layer on top of the detections rather than instead of them, or in a shop with no UEBA that wants a model it can read line by line.
 
 ## Threat model
 
