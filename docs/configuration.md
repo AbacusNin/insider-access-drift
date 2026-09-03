@@ -104,12 +104,4 @@ python -m insider_access_drift score --in events.csv
 
 ### Running it on your own logs
 
-1. Settle the two inputs first. Define your peer groups (from HR or identity) and your sensitivity labels (from your classification program). This is the work that makes the rest meaningful, and it is not optional.
-2. Build an export that emits the nine-column schema from your access sources (identity provider sign-ins, repository audit logs, cloud file-share events, DLP events), stamping `resource_sensitivity` from your label source and `peer_group` from your role data onto each row.
-3. Validate a sample. `insider_access_drift.schema.validate_events` raises on missing columns, bad sensitivity values, bad flags, or unparseable timestamps, so a malformed export fails before scoring, not silently mid-run.
-4. Tune a `config.json` for your environment. Start from the defaults, then raise `min_peer_size` if your teams are large, adjust thresholds to the alert volume your reviewers can absorb, and reweight features toward the behavior you care about.
-5. Score. `python -m insider_access_drift score --in yourlogs.csv --config config.json --out ranked.csv`.
-6. Read the ranked table top down. `high_review` first, then `moderate_review`. Skip `insufficient_baseline` groups: they are too small for the comparison to mean anything, and the tool says so on purpose.
-7. Corroborate with the detections. Run the reference rules against the same log, or deploy the native KQL/SPL/Sigma in your SIEM, and see which flagged users a rule also catches. Two independent methods agreeing is a stronger signal than a drift score alone.
-8. Hand corroborated cases to a human. The output is triage, where to look first. It is not evidence, and it should not feed an automated response or an HR or legal process as if it were.
-9. Recalibrate. Watch what turns out to be a false positive: a quarter-end close, a migration, a legitimately broad cross-team role, a mis-assigned peer group. Fix the peer-group data and the thresholds, and rerun. The peer baseline is the part that drifts, and keeping it honest is ongoing work, not a one-time setup.
+The step-by-step for a real deployment, with a flowchart of the full loop, is in `operational-workflow.md`.

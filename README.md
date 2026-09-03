@@ -66,7 +66,7 @@ Every dial, the feature weights, the tier thresholds and peer-baseline gates, th
 
     python -m insider_access_drift score --in events.csv --config my-config.json
 
-`docs/configuration.md` documents every dial, how the two operator-owned inputs (`resource_sensitivity` and `peer_group`) get populated upstream, and the step-by-step workflow for running this against real logs.
+`docs/configuration.md` documents every dial and how the two operator-owned inputs (`resource_sensitivity` and `peer_group`) get populated upstream. `docs/operational-workflow.md` has the end-to-end deployment workflow and a flowchart of the full loop.
 
 ## Detections
 
