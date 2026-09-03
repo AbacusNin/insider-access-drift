@@ -2,29 +2,30 @@ from __future__ import annotations
 
 import pandas as pd
 
+from .config import DEFAULT_ACTION_WEIGHTS, FeatureConfig
 from .schema import validate_events
 
-ACTION_WEIGHTS: dict[str, float] = {
-    "view": 0.2, "download": 1.0, "clone": 1.5, "export": 2.0,
-    "share": 2.0, "delete": 2.5, "permission_change": 3.0,
-}
+# Back-compat alias for callers that imported the default table directly.
+ACTION_WEIGHTS = DEFAULT_ACTION_WEIGHTS
 
 
-def prepare(events: pd.DataFrame) -> pd.DataFrame:
+def prepare(events: pd.DataFrame, config: FeatureConfig | None = None) -> pd.DataFrame:
+    cfg = config or FeatureConfig()
     df = validate_events(events)
-    df["action_weight"] = df["action"].map(ACTION_WEIGHTS).fillna(0.5)
+    df["action_weight"] = df["action"].map(cfg.action_weights).fillna(cfg.default_action_weight)
     df["weighted_sensitivity"] = df["resource_sensitivity"].clip(0, 3) * df["action_weight"]
     df["mb_out"] = df["bytes_out"].fillna(0).clip(lower=0) / (1024 * 1024)
     return df
 
 
-def user_features(events: pd.DataFrame) -> pd.DataFrame:
-    df = prepare(events)
+def user_features(events: pd.DataFrame, config: FeatureConfig | None = None) -> pd.DataFrame:
+    cfg = config or FeatureConfig()
+    df = prepare(events, cfg)
     g = df.groupby(["user_id", "peer_group"], as_index=False).agg(
         total_events=("resource_id", "count"),
         distinct_resources=("resource_id", "nunique"),
-        restricted_touches=("resource_sensitivity", lambda x: int((x >= 2).sum())),
-        crown_jewel_touches=("resource_sensitivity", lambda x: int((x >= 3).sum())),
+        restricted_touches=("resource_sensitivity", lambda x: int((x >= cfg.restricted_min).sum())),
+        crown_jewel_touches=("resource_sensitivity", lambda x: int((x >= cfg.crown_jewel_min).sum())),
         weighted_sensitivity=("weighted_sensitivity", "sum"),
         mb_out=("mb_out", "sum"),
         external_shares=("external_share", "sum"),
@@ -36,8 +37,8 @@ def user_features(events: pd.DataFrame) -> pd.DataFrame:
 
 
 def add_trend_feature(events: pd.DataFrame, features: pd.DataFrame,
-                      split=None) -> pd.DataFrame:
-    df = prepare(events)
+                      split=None, config: FeatureConfig | None = None) -> pd.DataFrame:
+    df = prepare(events, config)
     if split is None:
         span = df["event_time"].max() - df["event_time"].min()
         split = df["event_time"].min() + span / 2

@@ -60,6 +60,14 @@ The eight features feed a weighted sum, `WeightConfig`, one weight per feature, 
 
 `drift_score` is the sum of each feature's robust z-score times its weight. Users above `high_threshold` (8.0) land in `high_review`, above `moderate_threshold` (4.0) in `moderate_review`, everyone else in `baseline`. Both thresholds and every weight live in `DriftConfig` and `WeightConfig`, and they are meant to get tuned per deployment, not treated as universal constants.
 
+## Configuration
+
+Every dial, the feature weights, the tier thresholds and peer-baseline gates, the per-action weights, the restricted and crown-jewel sensitivity cutoffs, and the four detection thresholds, is one object (`insider_access_drift.config.Config`) with working defaults. Override any of it from a JSON file without touching code:
+
+    python -m insider_access_drift score --in events.csv --config my-config.json
+
+`docs/configuration.md` documents every dial, how the two operator-owned inputs (`resource_sensitivity` and `peer_group`) get populated upstream, and the step-by-step workflow for running this against real logs.
+
 ## Detections
 
 Four rules, each shipped twice: once as a pandas reference under `detections/reference/`, once as the platform-native query it represents.
