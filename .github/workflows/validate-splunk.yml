@@ -58,9 +58,9 @@ jobs:
           ready=0
           for i in $(seq 1 60); do
             api_code=$(curl -s -o /dev/null -w "%{http_code}" --cacert splunk-ca.pem \
-              -u admin:Changed-me-2026 https://localhost:8089/services/server/info)
+              -u admin:Changed-me-2026 https://localhost:8089/services/server/info || echo 000)
             hec_code=$(curl -s -o /dev/null -w "%{http_code}" --cacert splunk-ca.pem \
-              https://localhost:8088/services/collector/health)
+              https://localhost:8088/services/collector/health || echo 000)
             if [ "$api_code" = "200" ] && [ "$hec_code" = "200" ]; then
               echo ready; ready=1; break
             fi
