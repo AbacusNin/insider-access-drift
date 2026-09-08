@@ -7,9 +7,9 @@ Every dial this tool exposes lives in one place: `insider_access_drift/config.py
 Before the dials, cover the boundary. Two columns drive almost everything, and this tool computes neither. You supply them on every event:
 
 - `resource_sensitivity` (0 to 3): whether a resource is public, confidential, restricted, or crown jewel. This tool never classifies anything. The value comes from your own data-classification program: sensitivity labels (for example Microsoft Purview), repository topics or tags, a CMDB asset tier, or a data owner's designation. Whatever stamps that number onto an event sits upstream of this tool.
-- `peer_group`: the baseline a user is compared against. It comes from your HR or identity system (team, job family, role). Get this wrong and every score for that user is measured against the wrong yardstick. The limitations section of the README flags this as the dependency the whole scheme rests on.
+- `peer_group`: the baseline a user is compared against. It comes from your HR or identity system (team, job family, role). Get this wrong and every score for that user is measured against the wrong yardstick. The README's limitations section makes the same point: everything here depends on getting the peer groups right.
 
-This tool assumes that classification-and-role program already exists and feeds it clean labels. It does not build one. If you have no sensitivity labels, that is the first project, not this one.
+This tool assumes that classification-and-role program already exists and feeds it clean labels. It does not build one. If you have no sensitivity labels, building them comes first. This tool is the step after.
 
 ## The tunable surface
 
@@ -57,11 +57,11 @@ Thresholds for the four rules.
 
 ### The native rule files are not generated from this config
 
-`insider_access_drift/detections/*.py` reads these dials directly. The deployable `detections/kql/*.kql`, `detections/splunk/*.spl`, and `detections/sigma/*.yml` carry the same values as inline literals (for example `med * 3`, `restricted_touches >= 3`, `mb_out >= 100`, `resource_sensitivity|gte: 2`). If you change a detection dial, edit the matching rule file by hand so the deployed query and the reference stay in sync. The scheduled CI jobs assert both fire on the same synthetic events, so if the two ever drift apart, the job fails.
+`insider_access_drift/detections/*.py` reads these dials directly. The deployable `detections/kql/*.kql`, `detections/splunk/*.spl`, and `detections/sigma/*.yml` carry the same values as inline literals (for example `med * 3`, `restricted_touches >= 3`, `mb_out >= 100`, `resource_sensitivity|gte: 2`). If you change a detection dial, edit the matching rule file by hand. That keeps the deployed query and the reference in sync. The scheduled CI jobs assert both fire on the same synthetic events, so if the two ever drift apart, the job fails.
 
 ## Setting the dials
 
-As a JSON file, which is the operator interface:
+The operator interface is a JSON file:
 
 ```json
 {
@@ -76,7 +76,7 @@ As a JSON file, which is the operator interface:
 python -m insider_access_drift score --in events.csv --config my-config.json
 ```
 
-Any key you omit keeps its default. An unknown key is rejected with an error rather than ignored, so a typo fails loudly instead of silently doing nothing.
+Any key you omit keeps its default. An unknown key throws an error, so a typo fails loudly.
 
 From code, if you are importing the library:
 
@@ -104,4 +104,4 @@ python -m insider_access_drift score --in events.csv
 
 ### Running it on your own logs
 
-The step-by-step for a real deployment, with a flowchart of the full loop, is in `operational-workflow.md`.
+See `operational-workflow.md` for the real-deployment step-by-step and a flowchart of the loop.
