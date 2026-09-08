@@ -37,14 +37,16 @@ jobs:
       - name: Pin Splunk's own CA (TLS stays on)
         # The mgmt and HEC server certs are both signed by Splunk's default CA, so
         # pin that CA. A leaf-only pin cannot build a chain and fails verification.
+        # docker exec defaults to the unprivileged splunk user, which cannot
+        # read /opt/splunk/etc/auth. Run these as root to reach the CA cert.
         run: |
           echo "--- pem files in the image ---"
-          docker exec splunk sh -c 'find /opt/splunk/etc/auth -maxdepth 3 -name "*.pem" 2>/dev/null' || true
-          ca=$(docker exec splunk sh -c 'find /opt/splunk/etc/auth -name cacert.pem 2>/dev/null | head -1' | tr -d "\r")
+          docker exec -u root splunk sh -c 'find /opt/splunk/etc/auth -maxdepth 3 -name "*.pem" 2>/dev/null' || true
+          ca=$(docker exec -u root splunk sh -c 'find /opt/splunk/etc/auth -name cacert.pem 2>/dev/null | head -1' | tr -d "\r")
           if [ -z "$ca" ]; then
-            echo "cacert.pem not found; listing auth dir:"; docker exec splunk sh -c 'ls -R /opt/splunk/etc/auth' | head -60; exit 1
+            echo "cacert.pem not found; listing auth dir:"; docker exec -u root splunk sh -c 'ls -R /opt/splunk/etc/auth' | head -60; exit 1
           fi
-          docker exec splunk sh -c "cat '$ca'" > splunk-ca.pem
+          docker exec -u root splunk sh -c "cat '$ca'" > splunk-ca.pem
           echo "--- pinned CA bytes ---"; wc -c splunk-ca.pem
       - name: Wait for Splunk API and HEC, verified with the pinned CA
         run: |
