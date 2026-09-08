@@ -2,8 +2,7 @@
 // ATT&CK T1213 Data from Information Repositories, T1078 Valid Accounts.
 let byuser =
     AccessEvents
-    | where resource_sensitivity >= 2
-    | summarize restricted_touches = count() by user_id, peer_group;
+    | summarize restricted_touches = countif(resource_sensitivity >= 2) by user_id, peer_group;
 let peermed =
     byuser
     | summarize med = percentile(restricted_touches, 50) by peer_group;

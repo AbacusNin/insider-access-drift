@@ -21,16 +21,20 @@ jobs:
             -e SPLUNK_HEC_TOKEN=00000000-0000-0000-0000-000000000000 \
             -p 8000:8000 -p 8088:8088 -p 8089:8089 \
             splunk/splunk:latest
-      - name: Wait for Splunk process to report running
+      - name: Wait for Splunk mgmt HTTPS, and pin the cert it presents
+        # The default cacert.pem path is not stable across image versions, so
+        # pin the cert the mgmt port actually presents. TLS verification stays on,
+        # and s_client succeeding is also the "HTTPS is up" gate.
         run: |
-          for i in $(seq 1 60); do
-            if docker exec splunk /opt/splunk/bin/splunk status | grep -q running; then
-              echo ready; break
+          for i in $(seq 1 90); do
+            if openssl s_client -connect localhost:8089 -servername localhost -showcerts </dev/null 2>/dev/null \
+                 | sed -n '/-----BEGIN CERTIFICATE-----/,/-----END CERTIFICATE-----/p' > splunk-ca.pem \
+                 && [ -s splunk-ca.pem ]; then
+              echo "mgmt HTTPS up; pinned the presented cert chain"; break
             fi
             sleep 10
           done
-      - name: Pin the container CA (no disabled TLS verification)
-        run: docker cp splunk:/opt/splunk/etc/auth/cacert.pem splunk-ca.pem
+          test -s splunk-ca.pem || { echo "Splunk mgmt HTTPS never came up" >&2; exit 1; }
       - name: Wait for Splunk API and HEC to actually be ready
         # `splunk status` can report running before first-boot provisioning
         # (admin user, HEC token, index readiness) finishes, so probe the

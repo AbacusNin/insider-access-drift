@@ -7,8 +7,8 @@ platform-native rules run against real engines in dedicated jobs.
 ## Splunk (SPL)
 
 `crownjewel_download_burst.spl` runs against `splunk/splunk` under the Free
-license. The `validate-splunk` workflow starts the container, copies out its CA
-cert, and pins it, so TLS verification stays on. Then it creates the
+license. The `validate-splunk` workflow starts the container, then pins the cert
+its mgmt port presents, so TLS verification stays on. Then it creates the
 `access_events` index. From there it ingests synthetic events over HEC, runs the
 search over the REST export endpoint, and asserts the flagged users equal
 `{u901}`.
@@ -19,8 +19,9 @@ Reproduce locally:
       -e SPLUNK_LICENSE_URI=Free -e SPLUNK_PASSWORD=Changed-me-2026 \
       -e SPLUNK_HEC_TOKEN=00000000-0000-0000-0000-000000000000 \
       -p 8088:8088 -p 8089:8089 splunk/splunk:latest
-    # wait for readiness, then pin the CA and create the index:
-    docker cp splunk:/opt/splunk/etc/auth/cacert.pem splunk-ca.pem
+    # wait for mgmt HTTPS, pin the presented cert, then create the index:
+    openssl s_client -connect localhost:8089 -showcerts </dev/null 2>/dev/null \
+      | sed -n '/BEGIN CERTIFICATE/,/END CERTIFICATE/p' > splunk-ca.pem
     curl -s --cacert splunk-ca.pem -u admin:Changed-me-2026 -X POST \
       https://localhost:8089/services/data/indexes -d name=access_events
     SPLUNK_PASSWORD=Changed-me-2026 \
@@ -28,8 +29,8 @@ Reproduce locally:
       SPLUNK_CA=splunk-ca.pem \
       python scripts/validate_splunk.py
 
-Verify at build: the exact `splunk/splunk` tag, the current Free-license
-volume limit, and the `cacert.pem` path in the image. All can change.
+Verify at build: the exact `splunk/splunk` tag and the current Free-license
+volume limit. Both can change.
 
 ## KQL (Kusto emulator)
 
