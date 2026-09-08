@@ -12,6 +12,35 @@ jobs:
         with:
           python-version: "3.11"
       - run: pip install -e ".[dev,validation]"
+      - name: Generate certs with localhost in the SAN
+        # Splunk's default server cert is issued as SplunkServerDefaultCert, which
+        # never matches localhost, so strict TLS verification from the runner fails.
+        # Issue our own CA and a server cert that names localhost, hand both to
+        # Splunk, and verify against our CA. Verification stays on the whole way.
+        run: |
+          mkdir -p certs
+          openssl req -x509 -newkey rsa:2048 -nodes -days 3 \
+            -keyout certs/ca.key -out certs/ca.pem \
+            -subj "/CN=insider-access-drift-test-ca"
+          openssl req -newkey rsa:2048 -nodes \
+            -keyout certs/server.key -out certs/server.csr \
+            -subj "/CN=localhost"
+          openssl x509 -req -in certs/server.csr -days 3 \
+            -CA certs/ca.pem -CAkey certs/ca.key -CAcreateserial \
+            -extfile <(printf "subjectAltName=DNS:localhost,IP:127.0.0.1") \
+            -out certs/server.crt
+          # Splunk's serverCert is one PEM: private key, then cert, then CA.
+          cat certs/server.key certs/server.crt certs/ca.pem > certs/server-combined.pem
+          chmod 0644 certs/*.pem
+          cat > splunk-defaults.yml <<'YML'
+          splunk:
+            ssl:
+              enable: true
+              cert: /tmp/certs/server-combined.pem
+              ca: /tmp/certs/ca.pem
+            hec:
+              cert: /tmp/certs/server-combined.pem
+          YML
       - name: Start Splunk (Free license)
         run: |
           docker run -d --name splunk \
@@ -20,6 +49,8 @@ jobs:
             -e SPLUNK_LICENSE_URI=Free \
             -e SPLUNK_PASSWORD=Changed-me-2026 \
             -e SPLUNK_HEC_TOKEN=00000000-0000-0000-0000-000000000000 \
+            -v "$PWD/certs":/tmp/certs:ro \
+            -v "$PWD/splunk-defaults.yml":/tmp/defaults/default.yml:ro \
             -p 8000:8000 -p 8088:8088 -p 8089:8089 \
             splunk/splunk:latest
       - name: Wait for the Splunk container to be healthy
@@ -34,27 +65,13 @@ jobs:
           done
           [ "$(docker inspect -f '{{.State.Health.Status}}' splunk 2>/dev/null)" = "healthy" ] \
             || { echo "splunk not healthy in time" >&2; docker logs --tail 150 splunk; exit 1; }
-      - name: Pin Splunk's own CA (TLS stays on)
-        # The mgmt and HEC server certs are both signed by Splunk's default CA, so
-        # pin that CA. A leaf-only pin cannot build a chain and fails verification.
-        # docker exec defaults to the unprivileged splunk user, which cannot
-        # read /opt/splunk/etc/auth. Run these as root to reach the CA cert.
-        run: |
-          echo "--- pem files in the image ---"
-          docker exec -u root splunk sh -c 'find /opt/splunk/etc/auth -maxdepth 3 -name "*.pem" 2>/dev/null' || true
-          ca=$(docker exec -u root splunk sh -c 'find /opt/splunk/etc/auth -name cacert.pem 2>/dev/null | head -1' | tr -d "\r")
-          if [ -z "$ca" ]; then
-            echo "cacert.pem not found; listing auth dir:"; docker exec -u root splunk sh -c 'ls -R /opt/splunk/etc/auth' | head -60; exit 1
-          fi
-          docker exec -u root splunk sh -c "cat '$ca'" > splunk-ca.pem
-          echo "--- pinned CA bytes ---"; wc -c splunk-ca.pem
-      - name: Wait for Splunk API and HEC, verified with the pinned CA
+      - name: Wait for Splunk API and HEC, verified against our CA
         run: |
           ready=0
           for i in $(seq 1 60); do
-            api=$(curl -s -o /dev/null -w "%{http_code}" --cacert splunk-ca.pem \
+            api=$(curl -s -o /dev/null -w "%{http_code}" --cacert certs/ca.pem \
               -u admin:Changed-me-2026 https://localhost:8089/services/server/info || echo 000)
-            hec=$(curl -s -o /dev/null -w "%{http_code}" --cacert splunk-ca.pem \
+            hec=$(curl -s -o /dev/null -w "%{http_code}" --cacert certs/ca.pem \
               https://localhost:8088/services/collector/health || echo 000)
             echo "attempt $i: api=$api hec=$hec"
             if [ "$api" = "200" ] && [ "$hec" = "200" ]; then ready=1; break; fi
@@ -65,8 +82,8 @@ jobs:
         env:
           SPLUNK_PASSWORD: Changed-me-2026
           SPLUNK_HEC_TOKEN: 00000000-0000-0000-0000-000000000000
-          SPLUNK_CA: splunk-ca.pem
+          SPLUNK_CA: certs/ca.pem
         run: |
-          curl -s --cacert splunk-ca.pem -u admin:Changed-me-2026 -X POST \
+          curl -s --cacert certs/ca.pem -u admin:Changed-me-2026 -X POST \
             https://localhost:8089/services/data/indexes -d name=access_events
           python scripts/validate_splunk.py
