@@ -34,6 +34,7 @@ jobs:
           chmod 0644 certs/*.pem
           cat > splunk-defaults.yml <<'YML'
           splunk:
+            password: Changed-me-2026
             ssl:
               enable: true
               cert: /tmp/certs/server-combined.pem
