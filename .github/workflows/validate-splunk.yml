@@ -21,20 +21,34 @@ jobs:
             -e SPLUNK_HEC_TOKEN=00000000-0000-0000-0000-000000000000 \
             -p 8000:8000 -p 8088:8088 -p 8089:8089 \
             splunk/splunk:latest
-      - name: Wait for Splunk mgmt HTTPS, and pin the cert it presents
-        # The default cacert.pem path is not stable across image versions, so
-        # pin the cert the mgmt port actually presents. TLS verification stays on,
-        # and s_client succeeding is also the "HTTPS is up" gate.
+      - name: Wait for the Splunk container to be ready
+        # Use the image's own healthcheck as the signal, fall back to a TLS probe
+        # on the mgmt port, fail fast if the container exits, and dump logs so a
+        # slow start and a crash look different in the run log.
         run: |
-          for i in $(seq 1 90); do
-            if openssl s_client -connect localhost:8089 -servername localhost -showcerts </dev/null 2>/dev/null \
-                 | sed -n '/-----BEGIN CERTIFICATE-----/,/-----END CERTIFICATE-----/p' > splunk-ca.pem \
-                 && [ -s splunk-ca.pem ]; then
-              echo "mgmt HTTPS up; pinned the presented cert chain"; break
+          ready=0
+          for i in $(seq 1 120); do
+            state=$(docker inspect -f '{{.State.Status}}' splunk 2>/dev/null || echo missing)
+            health=$(docker inspect -f '{{.State.Health.Status}}' splunk 2>/dev/null || echo none)
+            echo "attempt $i: state=$state health=$health"
+            if [ "$state" = "exited" ]; then
+              echo "container exited early"; docker logs --tail 150 splunk; exit 1
+            fi
+            if [ "$health" = "healthy" ]; then ready=1; break; fi
+            if [ "$state" = "running" ] \
+               && openssl s_client -connect localhost:8089 </dev/null 2>/dev/null | grep -q "BEGIN CERTIFICATE"; then
+              ready=1; break
             fi
             sleep 10
           done
-          test -s splunk-ca.pem || { echo "Splunk mgmt HTTPS never came up" >&2; exit 1; }
+          if [ "$ready" -ne 1 ]; then
+            echo "splunk not ready in time" >&2; docker ps -a; docker logs --tail 150 splunk; exit 1
+          fi
+      - name: Pin the cert the mgmt port presents (TLS stays on)
+        run: |
+          openssl s_client -connect localhost:8089 -servername localhost -showcerts </dev/null 2>/dev/null \
+            | sed -n '/-----BEGIN CERTIFICATE-----/,/-----END CERTIFICATE-----/p' > splunk-ca.pem
+          test -s splunk-ca.pem || { echo "could not pin mgmt cert" >&2; exit 1; }
       - name: Wait for Splunk API and HEC to actually be ready
         # `splunk status` can report running before first-boot provisioning
         # (admin user, HEC token, index readiness) finishes, so probe the
