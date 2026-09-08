@@ -47,7 +47,7 @@ flowchart TD
 6. **Read top down.** `high_review` first, then `moderate_review`. Skip `insufficient_baseline` groups, which are too small for the comparison to mean anything, and `baseline`, which is everyone else.
 7. **Corroborate with the detections.** Run the reference rules against the same log, or deploy the native KQL, SPL, and Sigma in your SIEM, and see which flagged users a rule also catches. Two independent methods agreeing is a stronger signal than a drift score alone.
 8. **Route to a human.** A case where the drift score and a detection agree goes to a reviewer. Everything here is triage, where to look first. It is not evidence, and it does not feed an automated response or an HR or legal process as if it were.
-9. **Recalibrate.** Watch what turns out to be a false positive: a quarter-end close, a migration, a legitimately broad cross-team role, a mis-assigned peer group. Fix the peer-group data and the thresholds, and the next run reflects it. The peer baseline shifts as teams and roles change, so keeping it honest is ongoing work.
+9. **Recalibrate.** Watch what turns out to be a false positive: a quarter-end close, a migration, a legitimately broad cross-team role, a mis-assigned peer group. Fix the peer-group data and the thresholds, and the next run picks up the change. The peer baseline shifts as teams and roles change, so keeping it honest is ongoing work.
 
 ## The guardrail, restated
 

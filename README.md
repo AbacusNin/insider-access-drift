@@ -14,7 +14,7 @@ The two parts do different jobs. The detections are the deployable part: signatu
 
 The risk is an insider with legitimate access. An employee or contractor who already has a login can reach past what the job needs, or move sensitive material toward the door, and in most logs it looks like ordinary work. None of it involves malware or a failed login. It is authorized access used the wrong way.
 
-This tool watches access telemetry for that pattern: who touched which resource, how sensitive it was, whether it left the company, and when. It does not try to model recruitment, payment, or motive, which happen off the network. It works only from the access itself, since that is what logs record. It cannot separate a malicious insider from a careless employee or a stolen account. All three surface the same way, as access that has drifted from the peer baseline.
+This tool watches access telemetry for that pattern: who touched which resource, how sensitive it was, whether it left the company, and when. It does not try to model recruitment, payment, or motive, which happen off the network. It works only from the access itself, because a log captures nothing else. It cannot separate a malicious insider from a careless employee or a stolen account. All three surface the same way, as access that has drifted from the peer baseline.
 
 Everything runs on synthetic data generated in the repo. There is no real user or company, and nothing here names an insider. The scorer and the rules produce triage, a ranked list and a few flagged rows for an analyst to look at. Nothing decides anything or takes an action.
 
@@ -57,7 +57,7 @@ A group needs enough data for the comparison to hold. `min_peer_size` (4 users) 
 
 The trend feature splits each user's history at the midpoint and measures how much their sensitive-access activity rose from the first half to the second. It catches the slow accumulator, someone whose sensitive access climbs week over week without any single day looking alarming.
 
-The eight features are combined as a weighted sum. Each weight is how much the observable is worth on its own:
+The eight features are combined as a weighted sum. Each weight says how much the observable is worth on its own:
 
 | Feature | Weight | Reason |
 | --- | --- | --- |
