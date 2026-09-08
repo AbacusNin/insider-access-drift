@@ -9,9 +9,9 @@ platform-native rules run against real engines in dedicated jobs.
 `crownjewel_download_burst.spl` runs against `splunk/splunk` under the Free
 license. The `validate-splunk` workflow starts the container, copies the
 container's CA cert out and pins it (TLS verification stays on, never
-disabled), creates the `access_events` index, ingests synthetic events over
-HEC, runs the search over the REST export endpoint, and asserts the flagged
-users equal `{u901}`.
+disabled), then creates the `access_events` index. From there it ingests
+synthetic events over HEC, runs the search over the REST export endpoint, and
+asserts the flagged users equal `{u901}`.
 
 Reproduce locally:
 

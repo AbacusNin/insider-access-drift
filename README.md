@@ -45,7 +45,7 @@ Two of these columns are not raw telemetry. `resource_sensitivity` and `peer_gro
 
 ## How scoring works
 
-![Data flow: the generator produces events, which feed feature aggregation, then robust-z scoring with a trend feature and a small-group baseline guard, producing ranked risk tiers. Events also feed the detection rules in parallel.](docs/diagram.svg)
+![Data flow: the generator produces events, which feed feature aggregation, then robust-z scoring with a trend feature and a small-group baseline guard, and come out as ranked risk tiers. Events also feed the detection rules in parallel.](docs/diagram.svg)
 
 The events come from a generator (`generate`), not from real logs. There is no public dataset of labelled insider access, and real access logs are not something you put in a public repo. So the tool ships its own: a fixed-seed synthetic log of a few benign peer groups doing normal work, plus three planted bad actors whose behavior is known ahead of time (a slow accumulator, an after-hours crown-jewel puller, and a contractor reaching across too many restricted resources). That known ground truth is what lets the tests and CI assert the scorer flags those three and no one else, a check you cannot run against unlabelled data. The seed is fixed, so every run produces the same log and a result is reproducible. Point the tool at your own schema-shaped CSV and the generator drops out of the picture.
 
@@ -57,7 +57,7 @@ A group needs enough data for the comparison to hold. `min_peer_size` (4 users) 
 
 The trend feature splits each user's history at the midpoint and measures how much their sensitive-access activity rose from the first half to the second. It catches the slow accumulator, someone whose sensitive access climbs week over week without any single day looking alarming.
 
-The eight features are combined as a weighted sum. Each weight reflects how much the observable is worth on its own:
+The eight features are combined as a weighted sum. Each weight is how much the observable is worth on its own:
 
 | Feature | Weight | Reason |
 | --- | --- | --- |

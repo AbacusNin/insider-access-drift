@@ -4,10 +4,10 @@ Every dial this tool exposes lives in one place: `insider_access_drift/config.py
 
 ## Two things this tool does not decide
 
-Before the dials, the boundary. Two columns drive almost everything, and neither is computed here. They are inputs you supply on every event:
+Before the dials, cover the boundary. Two columns drive almost everything, and this tool computes neither. You supply them on every event:
 
 - `resource_sensitivity` (0 to 3): whether a resource is public, confidential, restricted, or crown jewel. This tool never classifies anything. The value comes from your own data-classification program: sensitivity labels (for example Microsoft Purview), repository topics or tags, a CMDB asset tier, or a data owner's designation. Whatever stamps that number onto an event sits upstream of this tool.
-- `peer_group`: the baseline a user is compared against. It comes from your HR or identity system (team, job family, role). Get this wrong and every score for that user is measured against the wrong yardstick. The limitations section of the README calls this the whole scheme's dependency, and it means it.
+- `peer_group`: the baseline a user is compared against. It comes from your HR or identity system (team, job family, role). Get this wrong and every score for that user is measured against the wrong yardstick. The limitations section of the README flags this as the dependency the whole scheme rests on.
 
 This tool assumes that classification-and-role program already exists and feeds it clean labels. It does not build one. If you have no sensitivity labels, that is the first project, not this one.
 
@@ -100,7 +100,7 @@ python -m insider_access_drift generate --out events.csv
 python -m insider_access_drift score --in events.csv
 ```
 
-`generate` writes a fixed-seed log with three benign peer groups and three seeded bad actors. `score` prints a ranked table. The three personas surface at the top as `high_review`; the benign users sit near zero. That is the whole loop, on data that touches no real person.
+`generate` writes a fixed-seed log with three benign peer groups and three seeded bad actors. `score` prints a ranked table. The three personas surface at the top as `high_review`; the benign users sit near zero. That is the whole loop, on synthetic data that touches no real person.
 
 ### Running it on your own logs
 
