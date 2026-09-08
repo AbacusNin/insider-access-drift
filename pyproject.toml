@@ -8,7 +8,7 @@ version = "0.1.0"
 description = "Defensive access-drift scoring and insider-risk detections on synthetic telemetry"
 readme = "README.md"
 requires-python = ">=3.11"
-license = { text = "MIT" }
+license = { text = "Apache-2.0" }
 dependencies = ["pandas>=2.0", "numpy>=1.24"]
 
 [project.optional-dependencies]

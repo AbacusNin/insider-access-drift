@@ -8,13 +8,13 @@ Peer-relative access-drift scoring and insider-risk detections, built and valida
 
 An engineering-practice project. It is not a product to run in place of a SIEM or a UEBA. It has two parts over one access-log schema: four insider-risk detection rules (KQL, SPL, Sigma) and a scorer that ranks users by how far their access sits from their peers.
 
-The two parts do different jobs. The detections are the deployable part: signature rules you run in your SIEM, in real time, on data that is already there. If operational detection is all you want, use them and skip the scorer. The scorer does the thing a signature cannot. It flags the person who never trips a single rule but drifts from their peer group over weeks, and it ranks a queue instead of firing yes-or-no alerts. A commercial UEBA does this better and in real time. This is a small, readable version of the same idea, useful as a demonstration, as a triage layer on top of the detections, or where no UEBA is available.
+The two parts do different jobs. The detections are the deployable part: signature rules you run in your SIEM, in real time, on data that is already there. If operational detection is all you want, use them and skip the scorer. The scorer covers what a signature misses. It flags someone who never trips a single rule but whose access keeps drifting from their peer group week over week, and it produces a ranked queue rather than yes-or-no alerts. A commercial UEBA does this better and in real time. This is a small, readable version of the same idea, useful as a demonstration, as a triage layer on top of the detections, or where no UEBA is available.
 
 ## Threat model
 
-The risk is an insider with legitimate access. An employee or contractor who already has a login can reach past what the job needs, or move sensitive material toward the door, and in most logs it looks like ordinary work. There is no malware and no failed login. There is valid access, used wrong.
+The risk is an insider with legitimate access. An employee or contractor who already has a login can reach past what the job needs, or move sensitive material toward the door, and in most logs it looks like ordinary work. None of it involves malware or a failed login. It is authorized access used the wrong way.
 
-This tool watches access telemetry for that pattern: who touched which resource, how sensitive it was, whether it left the company, and when. It does not model recruitment, payment, or motive, which happen off the network. It models the one thing that leaves a trail, the access itself. A malicious insider, a careless one, and a stolen account all look the same here: access that drifts from a peer baseline.
+This tool watches access telemetry for that pattern: who touched which resource, how sensitive it was, whether it left the company, and when. It does not try to model recruitment, payment, or motive, which happen off the network. It works only from the access itself, since that is what logs record. It cannot separate a malicious insider from a careless employee or a stolen account. All three surface the same way, as access that has drifted from the peer baseline.
 
 Everything runs on synthetic data generated in the repo. There is no real user or company, and nothing here names an insider. The scorer and the rules produce triage, a ranked list and a few flagged rows for an analyst to look at. Nothing decides anything or takes an action.
 
@@ -47,13 +47,15 @@ Two of these columns are not raw telemetry. `resource_sensitivity` and `peer_gro
 
 ![Data flow: the generator produces events, which feed feature aggregation, then robust-z scoring with a trend feature and a small-group baseline guard, producing ranked risk tiers. Events also feed the detection rules in parallel.](docs/diagram.svg)
 
+The events come from a generator (`generate`), not from real logs. There is no public dataset of labelled insider access, and real access logs are not something you put in a public repo. So the tool ships its own: a fixed-seed synthetic log of a few benign peer groups doing normal work, plus three planted bad actors whose behavior is known ahead of time (a slow accumulator, an after-hours crown-jewel puller, and a contractor reaching across too many restricted resources). That known ground truth is what lets the tests and CI assert the scorer flags those three and no one else, a check you cannot run against unlabelled data. The seed is fixed, so every run produces the same log and a result is reproducible. Point the tool at your own schema-shaped CSV and the generator drops out of the picture.
+
 Scoring runs in three steps: aggregate each user's events into eight features (`user_features`), add a trend feature (`add_trend_feature`), then score (`score`). `score` reads the trend column, so `add_trend_feature` runs first. The CLI does both for you.
 
 Each feature is scored against the user's peer group, not the whole company, with a robust z-score: median-centered, scaled by the median absolute deviation, negatives clipped to zero because only high activity matters. If a group's deviation is zero, which happens in small groups with many tied values, it falls back to standard deviation, and if that is also zero the group scores zero.
 
 A group needs enough data for the comparison to hold. `min_peer_size` (4 users) and `min_peer_events` (20 events) gate it. A group under either gets `insufficient_baseline` instead of a score. Comparing one person against three others is not a baseline.
 
-The trend feature splits each user's history at the midpoint and measures how much their sensitive-access activity rose from the first half to the second. It catches the slow accumulator: no single bad day, but more sensitive access each week than the week before.
+The trend feature splits each user's history at the midpoint and measures how much their sensitive-access activity rose from the first half to the second. It catches the slow accumulator, someone whose sensitive access climbs week over week without any single day looking alarming.
 
 The eight features are combined as a weighted sum. Each weight reflects how much the observable is worth on its own:
 
@@ -110,7 +112,7 @@ Small teams break the baseline, which is why `insufficient_baseline` is its own 
 
 The scorer has no sense of a business cycle. A quarter-end close, a migration, or an audit spikes normal access for a whole team and reads like a coordinated push, unless the peer baseline moves with it.
 
-None of this is evidence. It is a ranked list built on assumptions that will not hold exactly in a real environment. It says where to look first, not what you will find.
+None of this is evidence. It is a ranked list built on assumptions that will not hold exactly in any real environment. Use it to decide where to look first.
 
 ## Roadmap
 
@@ -118,4 +120,4 @@ An LLM access-narrative explainer, not built yet. It would take a flagged user's
 
 ## License
 
-MIT. See `LICENSE`.
+Apache-2.0. See `LICENSE`.
