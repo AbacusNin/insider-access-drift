@@ -2,7 +2,7 @@
 
 Expects a Splunk instance reachable via env:
   SPLUNK_HOST (default localhost), SPLUNK_HEC_TOKEN, SPLUNK_PASSWORD,
-  SPLUNK_CA (path to the container's CA cert; TLS verification stays on).
+  SPLUNK_CA (path to the CA that signed Splunk's cert; TLS verification stays on).
 Ingests synthetic events via HEC, runs the search over the REST API,
 and asserts the flagged users equal {u901}.
 """
@@ -20,7 +20,7 @@ from insider_access_drift.generate import generate_events
 HOST = os.environ.get("SPLUNK_HOST", "localhost")
 HEC_TOKEN = os.environ["SPLUNK_HEC_TOKEN"]
 PASSWORD = os.environ["SPLUNK_PASSWORD"]
-# Pin the container's self-signed CA rather than disabling verification.
+# Pin the CA that signed Splunk's cert rather than disabling verification.
 # Falls back to True (system trust) so this never silently becomes insecure.
 VERIFY = os.environ.get("SPLUNK_CA") or True
 HEC = f"https://{HOST}:8088/services/collector/event"
