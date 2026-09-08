@@ -66,6 +66,17 @@ jobs:
           done
           [ "$(docker inspect -f '{{.State.Health.Status}}' splunk 2>/dev/null)" = "healthy" ] \
             || { echo "splunk not healthy in time" >&2; docker logs --tail 150 splunk; exit 1; }
+      - name: Diagnose admin auth (non-fatal)
+        run: |
+          echo "--- seed file (gone once applied) ---"
+          docker exec -u root splunk sh -c 'ls -l /opt/splunk/etc/system/local/user-seed.conf 2>&1' || true
+          echo "--- CLI login with our creds, inside container ---"
+          docker exec splunk /opt/splunk/bin/splunk list user -auth 'admin:Changed-me-2026' 2>&1 | head -8 || true
+          echo "--- external mgmt call body ---"
+          curl -s --cacert certs/ca.pem -u 'admin:Changed-me-2026' \
+            'https://localhost:8089/services/server/info?output_mode=json' 2>&1 | head -20 || true
+          echo "--- splunkd.log auth/seed lines ---"
+          docker exec -u root splunk sh -c 'grep -iE "seed|password reset|admin user" /opt/splunk/var/log/splunk/splunkd.log 2>/dev/null | tail -15' || true
       - name: Wait for Splunk API and HEC, verified against our CA
         run: |
           ready=0
