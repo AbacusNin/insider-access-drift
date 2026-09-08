@@ -16,6 +16,7 @@ search over the REST export endpoint, and asserts the flagged users equal
 Reproduce locally:
 
     docker run -d --name splunk -e SPLUNK_START_ARGS=--accept-license \
+      -e SPLUNK_GENERAL_TERMS=--accept-sgt-current-at-splunk-com \
       -e SPLUNK_LICENSE_URI=Free -e SPLUNK_PASSWORD=Changed-me-2026 \
       -e SPLUNK_HEC_TOKEN=00000000-0000-0000-0000-000000000000 \
       -p 8088:8088 -p 8089:8089 splunk/splunk:latest

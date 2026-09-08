@@ -15,6 +15,7 @@ jobs:
       - name: Start Splunk (Free license)
         run: |
           docker run -d --name splunk \
+            -e SPLUNK_GENERAL_TERMS=--accept-sgt-current-at-splunk-com \
             -e SPLUNK_START_ARGS=--accept-license \
             -e SPLUNK_LICENSE_URI=Free \
             -e SPLUNK_PASSWORD=Changed-me-2026 \
