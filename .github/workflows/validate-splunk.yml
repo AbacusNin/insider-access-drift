@@ -22,54 +22,38 @@ jobs:
             -e SPLUNK_HEC_TOKEN=00000000-0000-0000-0000-000000000000 \
             -p 8000:8000 -p 8088:8088 -p 8089:8089 \
             splunk/splunk:latest
-      - name: Wait for the Splunk container to be ready
-        # Use the image's own healthcheck as the signal, fall back to a TLS probe
-        # on the mgmt port, fail fast if the container exits, and dump logs so a
-        # slow start and a crash look different in the run log.
+      - name: Wait for Splunk, and pin the certs it presents (TLS stays on)
+        # HEC (8088) and mgmt (8089) present different certs, so pin both into one
+        # bundle. Re-pin each attempt, since HEC comes up after mgmt. Probe both
+        # endpoints with the bundle, and only trust the instance once both are 200.
         run: |
           ready=0
           for i in $(seq 1 120); do
             state=$(docker inspect -f '{{.State.Status}}' splunk 2>/dev/null || echo missing)
-            health=$(docker inspect -f '{{.State.Health.Status}}' splunk 2>/dev/null || echo none)
-            echo "attempt $i: state=$state health=$health"
             if [ "$state" = "exited" ]; then
               echo "container exited early"; docker logs --tail 150 splunk; exit 1
             fi
-            if [ "$health" = "healthy" ]; then ready=1; break; fi
-            if [ "$state" = "running" ] \
-               && openssl s_client -connect localhost:8089 </dev/null 2>/dev/null | grep -q "BEGIN CERTIFICATE"; then
-              ready=1; break
+            : > splunk-ca.pem
+            for port in 8089 8088; do
+              openssl s_client -connect localhost:$port -servername localhost -showcerts </dev/null 2>/dev/null \
+                | sed -n '/-----BEGIN CERTIFICATE-----/,/-----END CERTIFICATE-----/p' >> splunk-ca.pem
+            done
+            api=000; hec=000
+            if [ -s splunk-ca.pem ]; then
+              api=$(curl -s -o /dev/null -w "%{http_code}" --cacert splunk-ca.pem \
+                -u admin:Changed-me-2026 https://localhost:8089/services/server/info || echo 000)
+              hec=$(curl -s -o /dev/null -w "%{http_code}" --cacert splunk-ca.pem \
+                https://localhost:8088/services/collector/health || echo 000)
             fi
-            sleep 10
-          done
-          if [ "$ready" -ne 1 ]; then
-            echo "splunk not ready in time" >&2; docker ps -a; docker logs --tail 150 splunk; exit 1
-          fi
-      - name: Pin the cert the mgmt port presents (TLS stays on)
-        run: |
-          openssl s_client -connect localhost:8089 -servername localhost -showcerts </dev/null 2>/dev/null \
-            | sed -n '/-----BEGIN CERTIFICATE-----/,/-----END CERTIFICATE-----/p' > splunk-ca.pem
-          test -s splunk-ca.pem || { echo "could not pin mgmt cert" >&2; exit 1; }
-      - name: Wait for Splunk API and HEC to actually be ready
-        # `splunk status` can report running before first-boot provisioning
-        # (admin user, HEC token, index readiness) finishes, so probe the
-        # real endpoints with the pinned CA before trusting the instance.
-        run: |
-          ready=0
-          for i in $(seq 1 60); do
-            api_code=$(curl -s -o /dev/null -w "%{http_code}" --cacert splunk-ca.pem \
-              -u admin:Changed-me-2026 https://localhost:8089/services/server/info || echo 000)
-            hec_code=$(curl -s -o /dev/null -w "%{http_code}" --cacert splunk-ca.pem \
-              https://localhost:8088/services/collector/health || echo 000)
-            if [ "$api_code" = "200" ] && [ "$hec_code" = "200" ]; then
-              echo ready; ready=1; break
-            fi
+            echo "attempt $i: state=$state api=$api hec=$hec"
+            if [ "$api" = "200" ] && [ "$hec" = "200" ]; then ready=1; break; fi
             sleep 10
           done
           if [ "$ready" -ne 1 ]; then
             echo "Splunk API/HEC did not become ready in time" >&2
-            exit 1
+            docker logs --tail 150 splunk; exit 1
           fi
+          test -s splunk-ca.pem
       - name: Create index and run validation
         env:
           SPLUNK_PASSWORD: Changed-me-2026
