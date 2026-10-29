@@ -120,4 +120,6 @@ An LLM access-narrative explainer, not built yet. It would take a flagged user's
 
 ## License
 
-Apache-2.0. See `LICENSE`.
+Apache License 2.0 with the Commons Clause. Anyone, including a company or a government agency, may use, change, and share insider-access-drift free of charge, for example to run the detections against its own logs. Nobody may sell it, host it for a fee, or sell a product or service, including consulting or support, whose value comes entirely or substantially from it. This makes it source-available rather than OSI open source. See `LICENSE` and `NOTICE`.
+
+I'm not accepting outside contributions.

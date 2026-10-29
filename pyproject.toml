@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=68"]
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -8,7 +8,8 @@ version = "0.1.0"
 description = "Defensive access-drift scoring and insider-risk detections on synthetic telemetry"
 readme = "README.md"
 requires-python = ">=3.11"
-license = { text = "Apache-2.0" }
+license = "LicenseRef-Apache-2.0-with-Commons-Clause"
+license-files = ["LICENSE", "NOTICE"]
 dependencies = ["pandas>=2.0", "numpy>=1.24"]
 
 [project.optional-dependencies]
